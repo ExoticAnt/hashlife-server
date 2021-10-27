@@ -30,3 +30,13 @@
 *.exe
 *.out
 *.app
+
+#Boost
+boost/
+
+#Output directories
+out/
+
+#VS
+.vs/
+
