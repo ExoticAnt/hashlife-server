@@ -277,6 +277,8 @@ do_session(
         if (ec)
             return fail(ec, "read");
 
+        std::cout << "Leido\n";
+
         // Send the response
         handle_request(*doc_root, std::move(req), lambda);
         if (ec)
@@ -309,7 +311,7 @@ int main(int argc, char* argv[])
                 "Example:\n" <<
                 "    http-server-sync 0.0.0.0 8080 .\n";
             return EXIT_FAILURE;
-        }
+        } 
         auto const address = net::ip::make_address(argv[1]);
         auto const port = static_cast<unsigned short>(std::atoi(argv[2]));
         auto const doc_root = std::make_shared<std::string>(argv[3]);
