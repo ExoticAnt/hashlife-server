@@ -14,9 +14,14 @@ endif()
 project ("hashlife-server")
 
 # Add source to this project's executable.
-add_executable (hashlife-server "hashlife-server.cpp" "hashlife-server.h")
+#add_executable (hashlife-server "hashlife-server.cpp" "hashlife-server.h" "main.cpp")
+add_executable (hashlife-server "main.cpp" "simple_implementation.h" "simple_implementation.cpp")
+
 
 #library directories
 include_directories(${CMAKE_SOURCE_DIR}/boost_1_77_0)
 
 # TODO: Add tests and install targets if needed.
+enable_testing()
+add_executable (SITest "SITest.cpp" "simple_implementation.h" "simple_implementation.cpp")
+add_test(NAME Simple_Implementation COMMAND SITest)
