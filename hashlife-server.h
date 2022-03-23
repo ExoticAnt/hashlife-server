@@ -6,3 +6,5 @@
 //#include <iostream>
 
 // TODO: Reference additional headers your program requires here.
+
+//template<class Path> std::vector<std::string> divide_path(Path P);

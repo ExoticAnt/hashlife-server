@@ -30,6 +30,10 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <vector>
+#include <regex>
+
+#include"simul_proc.h"
 
 namespace beast = boost::beast;         // from <boost/beast.hpp>
 namespace http = beast::http;           // from <boost/beast/http.hpp>
@@ -37,6 +41,9 @@ namespace net = boost::asio;            // from <boost/asio.hpp>
 using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
 
 //------------------------------------------------------------------------------
+
+//Class for interface with simulators:
+simulation_manager::SimulationManager sim_man;
 
 // Return a reasonable mime type based on the extension of a file.
 beast::string_view
@@ -164,48 +171,93 @@ template<
         req.target().find("..") != beast::string_view::npos)
         return send(bad_request("Illegal request-target"));
 
-    // Build the path to the requested file
-    std::string path = path_cat(doc_root, req.target());
-    if (req.target().back() == '/')
-        path.append("index.html");
+    //here the actions starts:
+    // /simulation/new -> starts a new simulation and returns simulation data
+    // /simulation/[simulation_id]/run -> runs an step and return
+    // /simularion/[simulation_id]/run/[n] -> runs n steps
+    //other paths -> return file
 
-    // Attempt to open the file
-    beast::error_code ec;
-    http::file_body::value_type body;
-    body.open(path.c_str(), beast::file_mode::scan, ec);
+    std::vector<std::string> subpaths = divide_path(req.target().to_string());
 
-    // Handle the case where the file doesn't exist
-    if (ec == beast::errc::no_such_file_or_directory)
-        return send(not_found(req.target()));
+    if (subpaths.size() > 0 && subpaths[0] == "simulation") {
+        beast::error_code ec;
+        http::string_body::value_type body;
+    
+        auto const result = sim_man.handle_request(body, subpaths);
 
-    // Handle an unknown error
-    if (ec)
-        return send(server_error(ec.message()));
+        if (result != simulation_manager::error_code::ok) {
+            return send(server_error(ec.message()));
+        }
 
-    // Cache the size since we need it after the move
-    auto const size = body.size();
+        // Cache the size since we need it after the move
+        auto const size = body.size();
 
-    // Respond to HEAD request
-    if (req.method() == http::verb::head)
-    {
-        http::response<http::empty_body> res{ http::status::ok, req.version() };
+        // Respond to HEAD request
+        if (req.method() == http::verb::head)
+        {
+            http::response<http::empty_body> res{ http::status::ok, req.version() };
+            res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
+            res.set(http::field::content_type, "text/html");
+            res.content_length(size);
+            res.keep_alive(req.keep_alive());
+            return send(std::move(res));
+        }
+        
+        // Respond to GET request
+        http::response<http::string_body> res{
+            std::piecewise_construct,
+            std::make_tuple(std::move(body)),
+            std::make_tuple(http::status::ok, req.version()) }; 
+        res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
+        res.set(http::field::content_type, "text/html");
+        res.content_length(size);
+        res.keep_alive(req.keep_alive());
+        return send(std::move(res));
+
+    } else {
+        // Build the path to the requested file
+        std::string path = path_cat(doc_root, req.target());
+        if (req.target().back() == '/')
+            path.append("index.html");
+
+        // Attempt to open the file
+        beast::error_code ec;
+        http::file_body::value_type body;
+        body.open(path.c_str(), beast::file_mode::scan, ec);
+
+        // Handle the case where the file doesn't exist
+        if (ec == beast::errc::no_such_file_or_directory)
+            return send(not_found(req.target()));
+
+        // Handle an unknown error
+        if (ec)
+            return send(server_error(ec.message()));
+
+        // Cache the size since we need it after the move
+        auto const size = body.size();
+
+        // Respond to HEAD request
+        if (req.method() == http::verb::head)
+        {
+            http::response<http::empty_body> res{ http::status::ok, req.version() };
+            res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
+            res.set(http::field::content_type, mime_type(path));
+            res.content_length(size);
+            res.keep_alive(req.keep_alive());
+            return send(std::move(res));
+        }
+
+        // Respond to GET request
+        http::response<http::file_body> res{
+            std::piecewise_construct,
+            std::make_tuple(std::move(body)),
+            std::make_tuple(http::status::ok, req.version()) };
         res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
         res.set(http::field::content_type, mime_type(path));
         res.content_length(size);
         res.keep_alive(req.keep_alive());
         return send(std::move(res));
     }
-
-    // Respond to GET request
-    http::response<http::file_body> res{
-        std::piecewise_construct,
-        std::make_tuple(std::move(body)),
-        std::make_tuple(http::status::ok, req.version()) };
-    res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
-    res.set(http::field::content_type, mime_type(path));
-    res.content_length(size);
-    res.keep_alive(req.keep_alive());
-    return send(std::move(res));
 }
 
 //------------------------------------------------------------------------------
@@ -238,8 +290,7 @@ struct send_lambda
     }
 
     template<bool isRequest, class Body, class Fields>
-    void
-        operator()(http::message<isRequest, Body, Fields>&& msg) const
+    void operator()(http::message<isRequest, Body, Fields>&& msg) const
     {
         // Determine if we should close the connection after
         close_ = msg.need_eof();
@@ -297,6 +348,27 @@ do_session(
     // At this point the connection is closed gracefully
 }
 
+/*------------------------------------------------------------------------------------*/
+std::vector<std::string> divide_path(const std::string& path)
+{ 
+    std::vector<std::string> subpaths;
+    
+    std::regex word_regex("(\\w+)");
+    auto words_begin = std::sregex_iterator(path.begin(), path.end(), word_regex);
+    auto words_end = std::sregex_iterator();
+    
+    for (std::sregex_iterator i = words_begin; i != words_end; ++i) {
+        std::smatch match = *i;
+        subpaths.push_back(match.str());
+    }
+    
+    /*std::cout << "Encontrados: \n";
+    for (const auto& ss : subpaths) {
+        std::cout << ss << "\n";
+    }*/
+
+    return subpaths;
+}
 //------------------------------------------------------------------------------
 
 int main(int argc, char* argv[])
@@ -309,7 +381,7 @@ int main(int argc, char* argv[])
             std::cerr <<
                 "Usage: http-server-sync <address> <port> <doc_root>\n" <<
                 "Example:\n" <<
-                "    http-server-sync 0.0.0.0 8080 .\n";
+                "    http-server-sync 0.0.0.0 8080 .\\static \n";
             return EXIT_FAILURE;
         } 
         auto const address = net::ip::make_address(argv[1]);
