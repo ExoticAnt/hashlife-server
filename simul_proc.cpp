@@ -55,10 +55,10 @@ namespace simulation_manager {
 						//	if(parameters[4] == "random")
 						//}
 
-						body.append("<html><head></head><body>");
-						body.append("<p>Simulación " + simulation_id + "</p>");
-						body.append(HTMLOutput(universes[simulation_id]));
-						body.append("</body></html>");
+						//body.append("<html><head></head><body>");
+						//body.append("<p>Simulación " + simulation_id + "</p>");
+						body.append(JSONOutput(universes[simulation_id]));
+						//body.append("</body></html>");
 						return error_code::ok;
 				}
 				else if (parameters[1] == "delete") {
@@ -78,11 +78,11 @@ namespace simulation_manager {
 							if (p_num >= 4) runs = std::stoi(parameters[3]); //TODO::throw
 							universes[simulation_id].run(runs);
 							
-							body.append("<html><head></head><body>");
-							body.append("<p>Simulación " + simulation_id + "</p>");
+							//body.append("<html><head></head><body>");
+							//body.append("<p>Simulación " + simulation_id + "</p>");
 							//body.append(HTMLOutput(universes[simulation_id]));
 							body.append(JSONOutput(universes[simulation_id]));
-							body.append("</body></html>");
+							//body.append("</body></html>");
 
 							return error_code::ok;
 
