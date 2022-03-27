@@ -65,8 +65,8 @@ namespace simple_implementation {
 		string to_s(void) const;
 
 		//returns iterators for rows. For each row, a column iterator must be implemented
-		auto cbegin() { return universe.cbegin(); };
-		auto cend() { return universe.cend(); };
+		const auto cbegin() { return universe.cbegin(); };
+		const auto cend() { return universe.cend(); };
 
 		std::string get_id() const { return std::string(simulation_id); };
 		std::size_t get_rows() const { return rows; };

@@ -37,17 +37,15 @@ namespace simulation_manager {
 		obj["rows"] = universe.get_rows();
 		obj["cols"] = universe.get_cols();
 
-		//json::array array;
-		//std::for_each()
-
 		json::array array;
-		43
-		//std::for_each()
+		//std::for_each(universe.cbegin(), universe.cend(), [array](const auto &r) {array.push_back(json::array(r.cbegin(), r.cend())); });
+		for (auto r = universe.cbegin(); r != universe.cend(); ++r) {
+			array.push_back(json::array(r->cbegin(), r->cend()));
+		}
 
 		obj["data"] = array;
 
 		return json::serialize(obj);
-
 	};
 
 };
